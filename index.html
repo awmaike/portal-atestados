@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c8102e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Portal de Atestados · Credeal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+  /* =====================================================================
+     CONFIGURAÇÃO DA PÁGINA
+     URL_SERVIDOR: link do app da Web do Apps Script (termina em /exec).
+       - Página hospedada na KingHost: OBRIGATÓRIO preencher.
+       - Página aberta pelo próprio link do Google: pode ficar vazio.
+     LOGO_URL: endereço de uma imagem do logo (ex.: 'logo-credeal.png' na
+       mesma pasta). Vazio = usa o nome "Credeal" escrito.
+     ===================================================================== */
+  var URL_SERVIDOR = 'https://script.google.com/macros/s/AKfycbzXMNKbdhhWsWeC6u1ik-DboXKHm1bHkbnglG7KuRYsAMCxrAoTOVr-3QgtFBmNWyL-Yg/exec';
+  var LOGO_URL = '';
+  /*CONFIG_SERVIDOR*/
+</script>
+<style>
+  :root {
+    --vermelho: #c8102e; --vermelho-esc: #9f0c24; --vermelho-claro: #fdf0f2;
+    --texto: #1b2433; --suave: #4f5b6d; --fraco: #7d8797;
+    --borda: #e2e5ea; --fundo: #f5f6f8; --card: #ffffff;
+    --pauta: #d9e4f2;
+    --ok: #157f3c; --ok-fundo: #ebf7ef;
+    --alerta: #a35a00; --alerta-fundo: #fff6e5;
+    --erro: #b42318; --erro-fundo: #fdeceb;
+    --raio: 16px;
+    --sombra: 0 1px 2px rgba(27,36,51,.04);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--fundo); color: var(--texto);
+    font: 16px/1.55 "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  :focus-visible { outline: 3px solid rgba(200,16,46,.35); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition: none !important; } }
+  button, input, textarea { font: inherit; color: inherit; }
+
+  /* ---------- Cabeçalho ---------- */
+  .topo { background: var(--card); border-top: 4px solid var(--vermelho); border-bottom: 1px solid var(--borda); }
+  .selo-sesmt { height: 48px; width: auto; flex: none; display: block; }
+  .ajuda { margin-left: auto; font-size: 13px; color: var(--suave); text-decoration: none; text-align: right; }
+  .ajuda b { color: var(--texto); font-weight: 600; }
+  .ajuda:hover b { color: var(--vermelho); }
+  .topo-in { max-width: 760px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+  .marca { font-size: 28px; font-weight: 800; color: var(--vermelho); letter-spacing: -1px; line-height: 1; }
+  .marca img { height: 34px; display: block; }
+  .sep { width: 1px; height: 30px; background: var(--borda); }
+  .topo-txt b { display: block; font-size: 15px; line-height: 1.2; }
+  .topo-txt span { font-size: 13px; color: var(--suave); }
+
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 120px; }
+  .aviso-teste { background: var(--alerta-fundo); color: #7a4400; border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+
+  /* ---------- Etapas ---------- */
+  .etapas { display: flex; gap: 6px; margin: 0 0 18px; }
+  .etapa { flex: 1; }
+  .etapa .barra { height: 4px; border-radius: 4px; background: var(--borda); }
+  .etapa .rot { margin-top: 6px; font-size: 13px; color: var(--fraco); font-weight: 600; }
+  .etapa.ativa .barra, .etapa.feita .barra { background: var(--vermelho); }
+  .etapa.ativa .rot { color: var(--texto); }
+
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -.4px; font-weight: 700; }
+  /* Abertura: folha de caderno pautada (linhas azuis e margem vermelha) */
+  .folha { position: relative; margin: 0 0 18px; padding: 26px 24px 30px 64px; border-radius: var(--raio); border: 1px solid var(--borda);
+    background-color: #fff;
+    background-image:
+      linear-gradient(90deg, transparent 43px, rgba(200,16,46,.55) 43px, rgba(200,16,46,.55) 45px, transparent 45px),
+      repeating-linear-gradient(180deg, transparent 0, transparent 29px, var(--pauta) 29px, var(--pauta) 30px);
+    background-position: 0 0, 0 27px; overflow: hidden; }
+  /* cada linha de texto ocupa 30px e assenta sobre a pauta */
+  .folha h1 { font-size: 28px; line-height: 30px; margin: 0; letter-spacing: -.5px; }
+  .folha .sub { line-height: 30px; margin: 0; color: var(--suave); }
+  .como { list-style: none; margin: 0; padding: 0; counter-reset: passo; }
+  .como li { counter-increment: passo; line-height: 30px; color: var(--suave); font-size: 15px; }
+  .como li::before { content: counter(passo); display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 10px;
+    border-radius: 50%; background: var(--texto); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; vertical-align: 2px; }
+  .como b { color: var(--texto); font-weight: 600; }
+  .sub { color: var(--suave); margin: 0 0 18px; font-size: 15px; }
+
+  /* ---------- Cartões ---------- */
+  .card { background: var(--card); border: 1px solid var(--borda); border-radius: var(--raio); padding: 20px; margin-bottom: 14px; box-shadow: var(--sombra); }
+  .card h2 { font-size: 18px; margin: 0 0 2px; display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.2px; }
+  .card h2 .num { width: 26px; height: 26px; border-radius: 50%; background: var(--texto); color: #fff;
+    display: inline-grid; place-items: center; font-size: 14px; font-weight: 800; flex: none; }
+  .card .desc { color: var(--suave); font-size: 14px; margin: 2px 0 16px; }
+
+  /* ---------- Envio do arquivo ---------- */
+  .botoes-anexo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-anexo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 104px; border: 2px dashed #d3d6da; border-radius: 12px; background: #fafafa; cursor: pointer;
+    font-weight: 700; font-size: 15px; padding: 12px; text-align: center; transition: border-color .15s, background .15s; }
+  .btn-anexo:hover, .btn-anexo:focus-visible, .botoes-anexo.arrastando .btn-anexo { border-color: var(--vermelho); background: var(--vermelho-claro); outline: none; }
+  .btn-anexo svg { width: 30px; height: 30px; color: var(--vermelho); }
+  .btn-anexo small { font-weight: 400; color: var(--fraco); font-size: 12px; }
+  .dicas { margin: 14px 0 0; padding: 12px 14px; background: #f7f8f9; border-radius: 10px; font-size: 13px; color: var(--suave); }
+  .dicas b { color: var(--texto); }
+  .dicas ul { margin: 6px 0 0; padding-left: 18px; }
+
+  .anexado { display: none; gap: 14px; align-items: flex-start; }
+  .anexado.on { display: flex; }
+  .previa { width: 108px; height: 140px; flex: none; border-radius: 10px; border: 1px solid var(--borda); background: #f1f2f4 center/cover no-repeat;
+    display: grid; place-items: center; overflow: hidden; }
+  .previa canvas, .previa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .anexado-info { flex: 1; min-width: 0; }
+  .nome-arq { font-weight: 700; word-break: break-all; font-size: 15px; }
+  .tam-arq { color: var(--fraco); font-size: 13px; }
+  .trocar { margin-top: 8px; background: none; border: 0; color: var(--vermelho); font-weight: 700; padding: 0; cursor: pointer; font-size: 14px; }
+
+  .status { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 14px; display: flex; gap: 8px; align-items: flex-start; }
+  .status.lendo { background: #f1f3f5; color: var(--suave); }
+  .status.ok { background: var(--ok-fundo); color: var(--ok); }
+  .status.alerta { background: var(--alerta-fundo); color: var(--alerta); }
+  .status .ic { flex: none; font-weight: 800; }
+  .giro { width: 16px; height: 16px; border: 2px solid #c9cdd2; border-top-color: var(--vermelho); border-radius: 50%; animation: giro .8s linear infinite; flex: none; margin-top: 2px; }
+  @keyframes giro { to { transform: rotate(360deg); } }
+
+  /* ---------- Campos ---------- */
+  .grade { display: grid; gap: 14px; grid-template-columns: repeat(6, 1fr); }
+  .c6 { grid-column: span 6; } .c4 { grid-column: span 4; } .c3 { grid-column: span 3; } .c2 { grid-column: span 2; }
+  label.rot { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--texto); }
+  label.rot small { font-weight: 400; color: var(--fraco); }
+  input[type=text], input[type=email], input[type=date], input[type=number], input:not([type]), textarea {
+    width: 100%; min-height: 48px; padding: 11px 13px; border: 1px solid #d3d6da; border-radius: 10px; background: #fff;
+    font-size: 16px; transition: border-color .15s, box-shadow .15s; -webkit-appearance: none; appearance: none; }
+  textarea { min-height: 76px; resize: vertical; }
+  input:focus, textarea:focus { outline: none; border-color: var(--vermelho); box-shadow: 0 0 0 3px rgba(200,16,46,.15); }
+  input.invalido, textarea.invalido { border-color: var(--erro); box-shadow: 0 0 0 3px rgba(180,35,24,.12); }
+  .dica { font-size: 12px; color: var(--fraco); margin-top: 5px; }
+  input.auto { background: #f2faf5; border-color: #9fd2b2; }
+  .auto-status { margin-top: 8px; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; color: var(--suave); }
+  .auto-status.ok { color: var(--ok); }
+  .aviso-auto { display: none; margin: -4px 0 14px; padding: 10px 12px; border-radius: 10px; background: #f2faf5; color: var(--ok); font-size: 14px; }
+  .aviso-auto.on { display: block; }
+  .msg-campo { font-size: 13px; color: var(--erro); margin-top: 5px; display: none; }
+  .invalido + .msg-campo { display: block; }
+
+  .declaracao { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--borda); border-radius: 12px; background: #fafafa; cursor: pointer; font-size: 14px; color: var(--suave); }
+  .decl-txt { display: block; color: var(--texto); font-weight: 600; line-height: 1.45; }
+  .decl-nota { display: block; margin-top: 6px; color: var(--fraco); font-size: 12px; }
+  .divisor { border-top: 1px dashed var(--borda); margin: 20px 0 16px; }
+  .subtitulo { font-size: 15px; margin: 0 0 10px; }
+  .subtitulo small { font-weight: 400; color: var(--fraco); }
+  .zona-receita { display: flex; align-items: center; gap: 12px; padding: 16px; border: 2px dashed #d3d6da; border-radius: 12px; background: #fafafa; cursor: pointer; }
+  .zona-receita:hover, .zona-receita:focus-visible { border-color: var(--vermelho); background: var(--vermelho-claro); outline: none; }
+  .zona-receita svg { width: 26px; height: 26px; color: var(--vermelho); flex: none; }
+  .zona-receita b { display: block; font-size: 15px; }
+  .zona-receita small { display: block; color: var(--fraco); font-size: 12px; }
+  .receita-ok { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--ok-fundo); }
+  .receita-ok.oculto { display: none; }
+  .receita-ok .ic-ok { color: var(--ok); font-weight: 800; }
+  .nome-receita { flex: 1; min-width: 0; word-break: break-all; font-size: 14px; font-weight: 600; }
+  .declaracao input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--vermelho); }
+  .declaracao.invalido { border-color: var(--erro); background: var(--erro-fundo); }
+
+  /* ---------- Revisão ---------- */
+  .checks { list-style: none; margin: 0; padding: 0; }
+  .checks li { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f0f1f3; font-size: 15px; }
+  .checks li:last-child { border-bottom: 0; }
+  .bolha { width: 24px; height: 24px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+  .bolha.ok { background: var(--ok-fundo); color: var(--ok); }
+  .bolha.al { background: var(--alerta-fundo); color: var(--alerta); }
+  .bolha.na { background: #f1f3f5; color: var(--fraco); }
+  .resumo { display: grid; grid-template-columns: 160px 1fr; gap: 0 14px; font-size: 15px; margin: 0; }
+  .resumo dt { color: var(--suave); }
+  .resumo dd { margin: 0; word-break: break-word; font-weight: 600; }
+
+  .card-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .card-topo h2 { margin: 0; }
+  .editar { background: none; border: 1px solid var(--borda); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--vermelho); cursor: pointer; }
+  .editar:hover { background: var(--vermelho-claro); border-color: #f0c3cb; }
+  .faixa { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--raio); margin-bottom: 14px; border: 1px solid; }
+  .faixa .ic-faixa { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; flex: none; color: #fff; }
+  .faixa b { display: block; font-size: 15px; }
+  .faixa span { font-size: 14px; }
+  .faixa.ok { background: var(--ok-fundo); border-color: #b9e2c7; color: #0f5c2c; }
+  .faixa.ok .ic-faixa { background: var(--ok); }
+  .faixa.al { background: var(--alerta-fundo); border-color: #f1d39a; color: #6e3d00; }
+  .faixa.al .ic-faixa { background: var(--alerta); }
+  .doc-rev { display: flex; gap: 16px; align-items: flex-start; }
+  .previa-p { width: 92px; height: 120px; }
+  .doc-rev-info { flex: 1; min-width: 0; }
+  .doc-rev .checks { margin-top: 8px; }
+  .doc-rev .checks li { padding: 8px 0; font-size: 14px; }
+  .resumo { grid-template-columns: 170px 1fr; }
+  .resumo dt, .resumo dd { padding: 9px 0; border-bottom: 1px solid #f0f1f3; }
+  .resumo dt:nth-last-of-type(1), .resumo dd:last-of-type { border-bottom: 0; }
+  .nota-envio { font-size: 13px; color: var(--fraco); text-align: center; margin: 6px 0 14px; }
+
+  /* ---------- Concluído ---------- */
+  .final { text-align: center; padding: 30px 20px; }
+  .final .selo-ok { width: 64px; height: 64px; border-radius: 50%; background: var(--ok-fundo); color: var(--ok); display: grid; place-items: center; margin: 0 auto 14px; }
+  .final .selo-ok svg { width: 34px; height: 34px; }
+  .prot-caixa { display: inline-flex; align-items: center; gap: 10px; margin: 14px 0 6px; padding: 12px 16px; border-radius: 12px; background: var(--vermelho-claro); }
+  .protocolo { font-size: clamp(17px, 5.2vw, 22px); white-space: nowrap; font-weight: 800; color: var(--vermelho); letter-spacing: .5px; font-variant-numeric: tabular-nums; }
+  .copiar { border: 1px solid #f0c3cb; background: #fff; color: var(--vermelho); border-radius: 8px; padding: 6px 10px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .final p { color: var(--suave); max-width: 460px; margin: 10px auto 0; }
+
+  /* ---------- Botões e barra de ações ---------- */
+  .acoes { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+  .btn { min-height: 50px; padding: 12px 22px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; border: 1px solid #d3d6da; background: #fff; }
+  .btn.prim { background: var(--vermelho); border-color: var(--vermelho); color: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 16px rgba(200,16,46,.18); }
+  .btn.prim:hover { background: var(--vermelho-esc); }
+  .btn:disabled { opacity: .6; cursor: wait; }
+  .erro-geral { display: none; background: var(--erro-fundo); color: var(--erro); padding: 12px 14px; border-radius: 12px; margin-bottom: 14px; font-size: 14px; }
+  .erro-geral.on { display: block; }
+  .oculto { display: none !important; }
+  .isca { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .rodape { text-align: center; color: var(--fraco); font-size: 13px; line-height: 1.6; margin-top: 28px; }
+  .rodape a { color: var(--suave); font-weight: 600; }
+  .rodape b { color: var(--suave); }
+
+  /* Envio em andamento */
+  .carregando { position: fixed; inset: 0; background: rgba(255,255,255,.88); display: none; place-items: center; z-index: 20; text-align: center; padding: 24px; }
+  .carregando.on { display: grid; }
+  .carregando .giro { width: 42px; height: 42px; border-width: 4px; margin: 0 auto 14px; }
+  .carregando b { display: block; font-size: 17px; }
+  .carregando span { color: var(--suave); font-size: 14px; }
+
+  @media (max-width: 640px) {
+    .c4, .c3, .c2 { grid-column: span 6; }
+    .card { padding: 16px; }
+    h1 { font-size: 21px; }
+    .resumo { grid-template-columns: 1fr; gap: 0; }
+    .resumo dt { padding: 9px 0 0; border-bottom: 0; font-size: 13px; }
+    .resumo dd { padding: 2px 0 9px; }
+    .doc-rev { gap: 12px; }
+    .previa-p { width: 72px; height: 96px; }
+    /* Barra de ações fixa no rodapé do celular */
+    .acoes.fixa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; margin: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,.96); border-top: 1px solid var(--borda); backdrop-filter: blur(6px); }
+    .acoes.fixa .btn { flex: 1; }
+    .topo-txt span { display: none; }
+    .ajuda { display: none; }
+    .selo-sesmt { margin-left: auto; height: 40px; }
+    .folha h1 { font-size: 23px; }
+    .folha { padding: 26px 16px 30px 52px; background-image:
+      linear-gradient(90deg, transparent 35px, rgba(200,16,46,.55) 35px, rgba(200,16,46,.55) 37px, transparent 37px),
+      repeating-linear-gradient(180deg, transparent 0, transparent 29px, var(--pauta) 29px, var(--pauta) 30px); }
+  }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <div class="marca" id="marca">Credeal</div>
+    <div class="sep"></div>
+    <div class="topo-txt"><b>Portal de Atestados</b><span>Recursos Humanos e SESMT</span></div>
+    <a class="ajuda" href="mailto:rh@credeal.com.br">Dúvidas? <b>rh@credeal.com.br</b></a>
+    <img class="selo-sesmt" alt="SESMT Credeal" src="data:image/png;base64,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Pn0WLFgAAFddddUX6tHdeBNBNgiC0047DQDuueeefD4f9dObNWvWsGHDksmkbdslJSXTpk37xz/+EdHjokWLxo4dCwCvvvoqiXP690jsMAgCgu769esTicTQoUMjumhubq6qqhowYMCePXvIfOCcDxw4cP/+/fTK4g5CSinC4XXr1nHOTz/99La2toqKiuHDh1PbumKJcAQbIZqx67pPP/00ybzoXX//+99JN5k0adLEiRMHDx7sOM7NN9/sum4ulyP+/eabb5aWlo4YMWLXrl1RY70v6GhDo//85z8HgMceeyxiSB9++CEAzJw5M0IW6jv0u9/97ggd4+bNmxe1YTnjjDPi8fjKlSsjQRXtvzrMVSwvosZ/9E0Yhu+++65lWXfccQcNtXz5curlUnx/Npt98MEHAeC2226jX+mlvFhBinQsrXVHR4fjOE1NTQsWLIjH42effXZkC2SzWcuySBZkMpl8Pn/77bdzzn/729+2tLQUNy+l3m9KqWw2u3Tp0lgsNnXqVAD45je/CQCffvopWQ3EqIkviMNchUKBbm5tbSXCpogm9dasqKig/mP5fJ4xVlVVRYp5Op3O5XJ0fywWu/HGG0eMGPH888/v27evpKSksy8ZmW6kq1GPHGJ41I9z3rx5ixYtmj59+vjx4z3PI9k7cOBAaj0U9U4ZNWrUpEmTFi5cuHz58lGjRhEFjRo1qqSkxBjT1taWy+XWrFkjhKBWEMcee6zruosXL77++usPHjyYzWZJNab1HK5ilMCUTCapi0VJSYllWYyxXC5HFkFJSQm1cGlsbHQcx3XdgwcPEiwGDhyYTCYrKyvPOeecJ5988r333rv22ms5567rdtYjt7a2Dho0qNiwI+uKdmzLli2RYKMeb2PGjBFCrFmzhhBSa/3qq69GzQEJUtdddx0itrS09O3bl0Y+4YQTCO1bWlrKysqqqqrS6fSwYcOiVqBHviorK6PGMlGzM3qWpvrwww8TyezYsaO4tQdjbOrUqXv37jXGfPTRR7ZtX3rppZHmJsl6icVi3/ve92prayMpzRgrKyv79re/fcYZZ1DPjng8HgQB5zwWi1133XV33nnnHXfcsXDhQmqxcvrpp//whz9sbm4OgkBK+frrr//pT3/SWm/evLmhoeGkk06aOnXq6NGjqUVseXn5N77xjffee+/555/ftWvX4MGDv/GN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">
+  </div>
+</header>
+
+<main>
+  <div class="aviso-teste oculto" id="avisoTeste"><b>Modo de teste:</b> a leitura e as conferências funcionam, mas nada é enviado. Para enviar, preencha <code>URL_SERVIDOR</code> no início do arquivo.</div>
+
+  <div class="etapas" aria-hidden="true">
+    <div class="etapa ativa" id="p1"><div class="barra"></div><div class="rot">Atestado e dados</div></div>
+    <div class="etapa" id="p2"><div class="barra"></div><div class="rot">Revisão</div></div>
+    <div class="etapa" id="p3"><div class="barra"></div><div class="rot">Protocolo</div></div>
+  </div>
+
+  <div class="erro-geral" id="erroGeral" role="alert"></div>
+
+  <!-- ================= ETAPA 1 ================= -->
+  <section id="etapa1">
+    <div class="folha">
+      <h1>Envie seu atestado médico</h1>
+      <p class="sub">Leva cerca de 2 minutos. O RH recebe na hora.</p>
+      <ol class="como">
+        <li><b>Anexe</b> a foto ou o PDF do atestado</li>
+        <li><b>Confira</b> os dados que lemos para você</li>
+        <li><b>Receba</b> o número de protocolo</li>
+      </ol>
+    </div>
+
+    <div class="card" id="cardArquivo">
+      <h2><span class="num">1</span>Foto ou PDF do atestado</h2>
+      <p class="desc">Se recebeu o atestado em PDF (Mevo, Memed, CFM…), envie o PDF. Se for em papel, tire uma foto.</p>
+
+      <div id="semArquivo">
+        <div class="botoes-anexo" id="zona">
+          <label class="btn-anexo" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Tirar foto
+            <small>Abre a câmera</small>
+            <input type="file" id="arqCamera" accept="image/*" capture="environment" class="oculto">
+          </label>
+          <label class="btn-anexo" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6M9 14l3 3 3-3"/></svg>
+            Escolher arquivo
+            <small>PDF, JPG ou PNG</small>
+            <input type="file" id="arqArquivo" accept="application/pdf,image/*" class="oculto">
+          </label>
+        </div>
+        <div class="dicas">
+          <b>Para a foto sair boa:</b>
+          <ul>
+            <li>Atestado inteiro na foto, de frente e sem dobras.</li>
+            <li>Boa luz, sem sombra nem reflexo.</li>
+            <li>O QR code e o código embaixo dele bem nítidos.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="anexado" id="anexado">
+        <div class="previa" id="previa"></div>
+        <div class="anexado-info">
+          <div class="nome-arq" id="nomeArq"></div>
+          <div class="tam-arq" id="tamArq"></div>
+          <div class="status lendo" id="status"><span class="giro"></span><span>Lendo o atestado…</span></div>
+          <div class="auto-status oculto" id="autoStatus"></div>
+          <button type="button" class="trocar" id="btnTrocar">Trocar arquivo</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cardDados">
+      <h2><span class="num">2</span>Seus dados</h2>
+      <p class="desc">Preencha como está no seu cadastro. O nome e o CPF são conferidos com o atestado.</p>
+      <div class="grade">
+        <div class="c6"><label class="rot" for="nome">Nome completo</label><input id="nome" autocomplete="name" autocapitalize="words"><div class="msg-campo">Informe o nome completo.</div></div>
+        <div class="c3"><label class="rot" for="cpf">CPF</label><input id="cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" autocomplete="off"><div class="msg-campo">CPF inválido.</div></div>
+        <div class="c3"><label class="rot" for="matricula">Matrícula / FM</label><input id="matricula" inputmode="numeric"><div class="msg-campo">Informe a matrícula.</div></div>
+        <div class="c3"><label class="rot" for="setor">Setor</label><input id="setor"><div class="msg-campo">Informe o setor.</div></div>
+        <div class="c3"><label class="rot" for="email">E-mail <small>(opcional, para receber o comprovante)</small></label><input id="email" type="email" autocomplete="email" inputmode="email"><div class="msg-campo">E-mail inválido.</div></div>
+      </div>
+    </div>
+
+    <div class="card" id="cardAtestado">
+      <h2><span class="num">3</span>Dados do atestado</h2>
+      <p class="desc">Copie as informações que estão escritas no atestado.</p>
+      <div class="aviso-auto" id="avisoAuto">Preenchemos os campos em verde com o que lemos no atestado. <b>Confira</b> e corrija se precisar.</div>
+      <div class="grade">
+        <div class="c3"><label class="rot" for="dataAtestado">Data do atestado</label><input id="dataAtestado" type="date"><div class="msg-campo">Informe a data do atestado.</div></div>
+        <div class="c3"><label class="rot" for="dias">Dias de afastamento</label><input id="dias" type="number" min="1" max="365" inputmode="numeric"><div class="msg-campo">Informe quantos dias.</div></div>
+        <div class="c6"><label class="rot" for="local">Local de atendimento</label><input id="local" placeholder="Hospital, UPA, clínica, teleconsulta…"><div class="msg-campo">Informe o local.</div></div>
+        <div class="c4"><label class="rot" for="medico">Nome do médico</label><input id="medico" autocapitalize="words"><div class="msg-campo">Informe o médico.</div></div>
+        <div class="c2"><label class="rot" for="crm">CRM <small>(opcional)</small></label><input id="crm" placeholder="12345/SC"></div>
+        <div class="c2"><label class="rot" for="cid">CID-10 <small>(opcional)</small></label><input id="cid" placeholder="Ex.: J01" maxlength="6" autocapitalize="characters"><div class="msg-campo">Formato inválido (ex.: J01).</div></div>
+        <div class="c4" style="align-self:end"><div class="dica">O CID só deve ser informado se você quiser compartilhar. A empresa não pode exigir.</div></div>
+        <div class="c6"><label class="rot" for="observacoes">Observações <small>(opcional)</small></label><textarea id="observacoes" rows="2"></textarea></div>
+      </div>
+
+      <div class="divisor"></div>
+      <h3 class="subtitulo">Perguntas</h3>
+      <p class="dica" style="margin:-6px 0 12px">Usadas pelo SESMT para acompanhar sua saúde. Respostas tratadas com sigilo.</p>
+      <div class="grade">
+        <div class="c6"><label class="rot" for="motivo">1 – Motivo do atestado</label><textarea id="motivo" rows="2" maxlength="500"></textarea><div class="msg-campo">Informe o motivo do atestado.</div></div>
+        <div class="c6"><label class="rot" for="medicamento">2 – Está usando medicamento? Qual?</label><input id="medicamento" maxlength="200" placeholder="Ex.: Não / Sim, amoxicilina"><div class="msg-campo">Responda se está usando medicamento.</div></div>
+        <div class="c6"><label class="rot" for="inicioSintomas">3 – Quando começaram os sintomas?</label><input id="inicioSintomas" maxlength="100" placeholder="Ex.: 01/11, à noite"><div class="msg-campo">Informe quando começaram os sintomas.</div></div>
+      </div>
+
+      <div class="divisor"></div>
+      <h3 class="subtitulo">Receita médica <small>(opcional)</small></h3>
+      <label class="zona-receita" id="zonaReceita" tabindex="0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>
+        <span><b>Anexar receita médica</b><small>Se o médico receitou algum medicamento · PDF, JPG ou PNG · até 10 MB</small></span>
+        <input type="file" id="arqReceita" accept="application/pdf,image/*" class="oculto">
+      </label>
+      <div class="receita-ok oculto" id="receitaOk">
+        <span class="ic-ok">✓</span><span class="nome-receita" id="nomeReceita"></span>
+        <button type="button" class="trocar" id="btnRemoverReceita" style="margin:0">Remover</button>
+      </div>
+      <input class="isca" id="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    </div>
+
+    <label class="declaracao" id="caixaDeclaracao">
+      <input type="checkbox" id="declaracao">
+      <span><b class="decl-txt">Estou ciente da veracidade de toda informação e documentação aqui enviada. Conforme a legislação, a falsificação de atestados médicos e o uso de documento falso são crimes previstos no Código Penal (arts. 297 a 304) e constituem falta grave, passível de demissão por justa causa (art. 482 da CLT).</b>
+        <small class="decl-nota">Esta confirmação substitui a assinatura do colaborador no formulário. Os dados, inclusive de saúde, são usados apenas pelo RH/SESMT da Credeal, conforme a LGPD.</small></span>
+    </label>
+
+    <div class="acoes fixa" style="margin-top:16px"><button class="btn prim" id="btnContinuar" type="button">Continuar</button></div>
+  </section>
+
+  <!-- ================= ETAPA 2 ================= -->
+  <section id="etapa2" class="oculto">
+    <h1>Revise antes de enviar</h1>
+    <p class="sub">Confira se está tudo certo. Depois de enviado, o atestado segue direto para o RH/SESMT.</p>
+
+    <div class="faixa" id="faixaStatus"></div>
+
+    <div class="card">
+      <div class="card-topo"><h2>Documento</h2><button type="button" class="editar" data-ir="cardArquivo">Trocar</button></div>
+      <div class="doc-rev">
+        <div class="previa previa-p" id="previaRev"></div>
+        <div class="doc-rev-info">
+          <div class="nome-arq" id="nomeRev"></div>
+          <div class="tam-arq" id="tamRev"></div>
+          <ul class="checks" id="listaChecagens"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-topo"><h2>Seus dados</h2><button type="button" class="editar" data-ir="cardDados">Editar</button></div>
+      <dl class="resumo" id="resumoColab"></dl>
+    </div>
+
+    <div class="card">
+      <div class="card-topo"><h2>Atestado</h2><button type="button" class="editar" data-ir="cardAtestado">Editar</button></div>
+      <dl class="resumo" id="resumoAtestado"></dl>
+    </div>
+
+    <p class="nota-envio">Ao enviar, você confirma que as informações são verdadeiras e que o arquivo é o seu atestado original.</p>
+
+    <div class="acoes fixa">
+      <button class="btn" id="btnVoltar" type="button">Voltar</button>
+      <button class="btn prim" id="btnEnviar" type="button">Enviar atestado</button>
+    </div>
+  </section>
+
+  <!-- ================= ETAPA 3 ================= -->
+  <section id="etapa3" class="oculto">
+    <div class="card final">
+      <div class="selo-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h1>Atestado enviado</h1>
+      <div class="prot-caixa"><span class="protocolo" id="protocolo"></span><button class="copiar" id="btnCopiar" type="button">Copiar</button></div>
+      <div class="dica">Guarde este número de protocolo.</div>
+      <p id="msgFinal"></p>
+      <div class="acoes" style="justify-content:center;margin-top:22px"><button class="btn" id="btnNovo" type="button">Enviar outro atestado</button></div>
+    </div>
+  </section>
+
+  <div class="rodape">
+    <b>Credeal</b>, Recursos Humanos e SESMT<br>
+    Dúvidas sobre o envio: <a href="mailto:rh@credeal.com.br">rh@credeal.com.br</a><br>
+    Seus dados e o atestado são vistos apenas pelo RH e pelo SESMT, conforme a LGPD.
+  </div>
+</main>
+
+<div class="carregando" id="carregando" role="status" aria-live="polite">
+  <div><div class="giro"></div><b id="msgCarregando">Enviando o atestado…</b><span>Pode levar até 1 minuto. Não feche esta página.</span></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Configuração ----------
+  var PADRAO = { dominios: ['iti.gov.br','cfm.org.br','memed.com.br','mevo.com.br','nexodata.com.br','docway.com.br','conexasaude.com.br','clicouconsulta.com.br'],
+                 tamanhoMaxMb: 10, prazoAlertaDias: 5, diasMax: 365, ocr: true };
+  var CFG = window.CONFIG_SERVIDOR || PADRAO;
+  var NO_GOOGLE = !!(window.google && google.script && google.script.run);
+  var MODO_TESTE = !NO_GOOGLE && !URL_SERVIDOR;
+
+  if (MODO_TESTE) document.getElementById('avisoTeste').classList.remove('oculto');
+  if (LOGO_URL) document.getElementById('marca').innerHTML = '<img src="' + LOGO_URL + '" alt="Credeal">';
+  // Página fora do Google: busca a configuração no servidor (lista de plataformas confiáveis etc.)
+  if (!NO_GOOGLE && URL_SERVIDOR && !window.CONFIG_SERVIDOR) {
+    fetch(URL_SERVIDOR + '?acao=config', { credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.ok && j.config) CFG = j.config; })
+      .catch(function () { /* usa o padrão */ });
+  }
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var estado = { arquivo: null, envio: null, analise: null, lendo: false, token: 0 };
+
+  // ---------- Utilitários ----------
+  function normalizar(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function cpfValido(c) {
+    c = String(c).replace(/\D/g, '');
+    if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+    for (var t = 9; t < 11; t++) {
+      var s = 0;
+      for (var i = 0; i < t; i++) s += Number(c[i]) * (t + 1 - i);
+      if (((s * 10) % 11) % 10 !== Number(c[t])) return false;
+    }
+    return true;
+  }
+  function nomeNoTexto(nome, texto) {
+    var n = normalizar(nome), t = normalizar(texto);
+    if (!n || !t) return false;
+    if (t.indexOf(n) !== -1) return true;
+    var ignorar = { DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1 };
+    var partes = n.split(' ').filter(function (p) { return p.length > 1 && !ignorar[p]; });
+    var palavras = ' ' + t + ' ';
+    return partes.length >= 2 && partes.every(function (p) { return palavras.indexOf(' ' + p + ' ') !== -1; });
+  }
+  function dominioDe(url) { var m = String(url || '').match(/^https?:\/\/([^\/?#:]+)/i); return m ? m[1].toLowerCase() : ''; }
+  function dominioConfiavel(d) {
+    return !!d && CFG.dominios.some(function (x) { return d === x || d.slice(-(x.length + 1)) === '.' + x; });
+  }
+  function qrGenerico(url) {
+    var m = String(url || '').match(/^https?:\/\/[^\/?#]+([^?#]*)(\?[^#]*)?/i);
+    if (!m) return false;
+    var caminho = m[1] || '', query = m[2] || '';
+    var idNaQuery = /=[^&]{6,}/.test(query);
+    var idNoCaminho = caminho.split('/').some(function (s) { return (s.length >= 6 && /\d/.test(s)) || s.length >= 16; });
+    return !(idNaQuery || idNoCaminho);
+  }
+  function nomePlataforma(d) {
+    var nomes = CFG.nomes || [['nexodata.com.br','Mevo'],['mevo.com.br','Mevo'],['memed.com.br','Memed'],['cfm.org.br','CFM'],
+      ['iti.gov.br','ITI'],['docway.com.br','Docway'],['conexasaude.com.br','Conexa Saúde'],['clicouconsulta.com.br','Clicou Consulta']];
+    for (var i = 0; i < nomes.length; i++) if (d === nomes[i][0] || d.slice(-(nomes[i][0].length + 1)) === '.' + nomes[i][0]) return nomes[i][1];
+    return d;
+  }
+  function diasDesde(iso) {
+    var p = iso.split('-').map(Number), data = new Date(p[0], p[1] - 1, p[2]);
+    var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return Math.round((hoje - data) / 86400000);
+  }
+  function dataBr(iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  function tamanho(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+  function blobParaBase64(blob) {
+    return new Promise(function (ok, falha) {
+      var r = new FileReader();
+      r.onload = function () { ok(String(r.result).split(',')[1] || ''); };
+      r.onerror = function () { falha(new Error('Não foi possível ler o arquivo.')); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  // Máscara do CPF e data máxima
+  $('cpf').addEventListener('input', function () {
+    var v = this.value.replace(/\D/g, '').slice(0, 11);
+    this.value = v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  });
+  $('dataAtestado').max = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  // Ao corrigir um campo, tira a marcação de erro
+  document.querySelectorAll('input, textarea').forEach(function (el) {
+    el.addEventListener('input', function () { el.classList.remove('invalido'); el.classList.remove('auto'); });
+  });
+  $('declaracao').addEventListener('change', function () { $('caixaDeclaracao').classList.remove('invalido'); });
+
+  // ---------- Leitura do QR code ----------
+  function lerQrDoCanvas(canvas) {
+    var ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+    var hw = Math.ceil(w * 0.6), hh = Math.ceil(h * 0.6);
+    var areas = [[0, 0, w, h], [0, 0, hw, hh], [w - hw, 0, hw, hh], [0, h - hh, hw, hh], [w - hw, h - hh, hw, hh]];
+    for (var i = 0; i < areas.length; i++) {
+      var r = areas[i], img = ctx.getImageData(r[0], r[1], r[2], r[3]);
+      var cod = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      if (cod && cod.data) return cod.data;
+    }
+    return '';
+  }
+
+  function analisarPdf(arq) {
+    return arq.arrayBuffer().then(function (buf) {
+      var bytesTxt = new TextDecoder('latin1').decode(new Uint8Array(buf));
+      var assinatura = bytesTxt.indexOf('/ByteRange') !== -1 && /adbe\.pkcs7|ETSI\.CAdES|\/Type\s*\/Sig\b/.test(bytesTxt);
+      return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise.then(function (pdf) {
+        var paginas = Math.min(pdf.numPages, 3), texto = '', qr = '', cadeia = Promise.resolve();
+        for (var n = 1; n <= paginas; n++) (function (num) {
+          cadeia = cadeia.then(function () {
+            return pdf.getPage(num).then(function (pg) {
+              if (num === 1) mostrarPreviaPdf(pg);
+              return pg.getTextContent().then(function (tc) {
+                texto += '\n' + tc.items.map(function (it) { return it.str + (it.hasEOL ? '\n' : ' '); }).join('');
+                if (qr) return;
+                var escalas = [2, 3.5], k = 0;
+                function tentar() {
+                  if (qr || k >= escalas.length) return;
+                  var vp = pg.getViewport({ scale: escalas[k++] });
+                  var cv = document.createElement('canvas');
+                  cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+                  var ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+                  return pg.render({ canvasContext: ctx, viewport: vp }).promise.then(function () { qr = lerQrDoCanvas(cv); return tentar(); });
+                }
+                return tentar();
+              });
+            });
+          });
+        })(n);
+        return cadeia.then(function () {
+          return { qr: qr, texto: texto, textoLido: texto.replace(/\s/g, '').length > 30, assinatura: assinatura, tipo: 'pdf' };
+        });
+      });
+    }).then(function (r) {
+      // PDF segue como foi recebido
+      return blobParaBase64(arq).then(function (b64) {
+        estado.envio = { nome: arq.name, tipo: 'application/pdf', base64: b64 };
+        return r;
+      });
+    });
+  }
+
+  function mostrarPreviaPdf(pg) {
+    var vp0 = pg.getViewport({ scale: 1 }), escala = 280 / vp0.height;
+    var vp = pg.getViewport({ scale: escala }), cv = document.createElement('canvas');
+    cv.width = Math.ceil(vp.width); cv.height = Math.ceil(vp.height);
+    var ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+    pg.render({ canvasContext: ctx, viewport: vp }).promise.then(function () { $('previa').innerHTML = ''; $('previa').appendChild(cv); });
+  }
+
+  // Foto: lê o QR na resolução original e envia uma cópia JPEG reduzida (mais rápida, OCR continua bom)
+  function analisarImagem(arq) {
+    return new Promise(function (ok, falha) {
+      var url = URL.createObjectURL(arq), img = new Image();
+      img.onload = function () {
+        var e1 = Math.min(1, 3000 / Math.max(img.width, img.height));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * e1); cv.height = Math.round(img.height * e1);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        var qr = lerQrDoCanvas(cv);
+
+        var e2 = Math.min(1, 2400 / Math.max(img.width, img.height));
+        var cv2 = document.createElement('canvas');
+        cv2.width = Math.round(img.width * e2); cv2.height = Math.round(img.height * e2);
+        var c2 = cv2.getContext('2d'); c2.fillStyle = '#fff'; c2.fillRect(0, 0, cv2.width, cv2.height);
+        c2.drawImage(img, 0, 0, cv2.width, cv2.height);
+        URL.revokeObjectURL(url);
+        cv2.toBlob(function (blob) {
+          if (!blob) { falha(new Error('Não foi possível processar a foto.')); return; }
+          $('previa').innerHTML = '<img alt="Prévia do atestado" src="' + URL.createObjectURL(blob) + '">';
+          blobParaBase64(blob).then(function (b64) {
+            estado.envio = { nome: (arq.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg', tipo: 'image/jpeg', base64: b64 };
+            ok({ qr: qr, texto: '', textoLido: null, assinatura: false, tipo: 'imagem' });
+          }, falha);
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); falha(new Error('Este formato de imagem não pôde ser aberto. Tente JPG, PNG ou PDF.')); };
+      img.src = url;
+    });
+  }
+
+  function status(cls, icone, html) {
+    var s = $('status'); s.className = 'status ' + cls;
+    s.innerHTML = (icone === 'giro' ? '<span class="giro"></span>' : '<span class="ic">' + icone + '</span>') + '<span>' + html + '</span>';
+  }
+
+  function receberArquivo(arq) {
+    if (!arq) return;
+    var ehPdf = arq.type === 'application/pdf' || /\.pdf$/i.test(arq.name || '');
+    var ehImg = /^image\//.test(arq.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(arq.name || '');
+    erroGeral('');
+    if (!ehPdf && !ehImg) { erroGeral('Formato não aceito. Envie uma foto ou um PDF.'); return; }
+    if (ehPdf && arq.size > CFG.tamanhoMaxMb * 1048576) { erroGeral('O PDF tem mais de ' + CFG.tamanhoMaxMb + ' MB.'); return; }
+    if (ehImg && arq.size > 40 * 1048576) { erroGeral('A foto é grande demais.'); return; }
+
+    estado.arquivo = arq; estado.analise = null; estado.envio = null; estado.lendo = true;
+    var meuToken = ++estado.token;
+    $('autoStatus').classList.add('oculto');
+    $('semArquivo').classList.add('oculto'); $('anexado').classList.add('on');
+    $('nomeArq').textContent = arq.name || 'Foto do atestado';
+    $('tamArq').textContent = (ehPdf ? 'PDF' : 'Foto') + ' · ' + tamanho(arq.size);
+    $('previa').innerHTML = '';
+    status('lendo', 'giro', 'Lendo o atestado e procurando o QR code…');
+
+    (ehPdf ? analisarPdf(arq) : analisarImagem(arq)).then(function (r) {
+      estado.analise = r; estado.lendo = false;
+      preencherDoAtestado(meuToken);
+      if (r.qr) {
+        var d = dominioDe(r.qr);
+        if (d && dominioConfiavel(d)) status('ok', '✓', 'QR code de validação encontrado' + ' (' + esc(nomePlataforma(d)) + ').');
+        else status('ok', '✓', 'QR code encontrado.');
+      } else if (r.tipo === 'pdf') {
+        status('alerta', '!', 'Não encontramos um QR code no PDF. Você pode enviar mesmo assim; o RH confere.');
+      } else {
+        status('alerta', '!', 'Não conseguimos ler o QR code da foto. Se puder, tire outra mais de perto, com boa luz. Você também pode enviar assim.');
+      }
+    }).catch(function (e) {
+      estado.lendo = false;
+      if (!estado.envio) {
+        status('alerta', '!', esc(e.message || 'Não foi possível abrir o arquivo.') + ' Tente outro arquivo.');
+        estado.analise = null;
+        return;
+      }
+      estado.analise = { qr: '', texto: '', textoLido: false, assinatura: false, tipo: ehPdf ? 'pdf' : 'imagem' };
+      status('alerta', '!', 'Não foi possível ler o arquivo automaticamente. Você ainda pode enviar; o RH confere.');
+    });
+  }
+
+  ['arqCamera', 'arqArquivo'].forEach(function (id) {
+    $(id).addEventListener('change', function () { receberArquivo(this.files[0]); this.value = ''; });
+  });
+  document.querySelectorAll('.btn-anexo').forEach(function (b) {
+    b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.querySelector('input').click(); } });
+  });
+  var zona = $('zona');
+  ['dragenter', 'dragover'].forEach(function (ev) { zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.add('arrastando'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { zona.addEventListener(ev, function (e) { e.preventDefault(); zona.classList.remove('arrastando'); }); });
+  zona.addEventListener('drop', function (e) { receberArquivo(e.dataTransfer.files[0]); });
+  $('btnTrocar').addEventListener('click', function () {
+    estado.arquivo = null; estado.analise = null; estado.envio = null; estado.token++;
+    $('autoStatus').classList.add('oculto');
+    $('anexado').classList.remove('on'); $('semArquivo').classList.remove('oculto');
+  });
+
+  // ---------- Receita médica (opcional) ----------
+  // PDF segue como está; foto é reduzida para JPEG, como o atestado.
+  function prepararReceita(arq) {
+    var ehPdf = arq.type === 'application/pdf' || /\.pdf$/i.test(arq.name || '');
+    if (ehPdf) {
+      if (arq.size > CFG.tamanhoMaxMb * 1048576) return Promise.reject(new Error('A receita tem mais de ' + CFG.tamanhoMaxMb + ' MB.'));
+      return blobParaBase64(arq).then(function (b64) { return { nome: arq.name, tipo: 'application/pdf', base64: b64 }; });
+    }
+    return new Promise(function (ok, falha) {
+      var url = URL.createObjectURL(arq), img = new Image();
+      img.onload = function () {
+        var e = Math.min(1, 2400 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * e); cv.height = Math.round(img.height * e);
+        var c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height); c.drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function (blob) {
+          if (!blob) { falha(new Error('Não foi possível processar a foto da receita.')); return; }
+          blobParaBase64(blob).then(function (b64) {
+            ok({ nome: (arq.name || 'receita').replace(/\.[^.]+$/, '') + '.jpg', tipo: 'image/jpeg', base64: b64 });
+          }, falha);
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); falha(new Error('Formato de imagem não suportado. Use JPG, PNG ou PDF.')); };
+      img.src = url;
+    });
+  }
+  $('arqReceita').addEventListener('change', function () {
+    var arq = this.files[0]; this.value = '';
+    if (!arq) return;
+    erroGeral('');
+    prepararReceita(arq).then(function (r) {
+      estado.receita = r;
+      $('nomeReceita').textContent = r.nome + ' · ' + tamanho(Math.round(r.base64.length * 0.75));
+      $('zonaReceita').classList.add('oculto'); $('receitaOk').classList.remove('oculto');
+    }).catch(function (e) { erroGeral(esc(e.message)); });
+  });
+  $('zonaReceita').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('arqReceita').click(); } });
+  $('btnRemoverReceita').addEventListener('click', function () {
+    estado.receita = null; $('receitaOk').classList.add('oculto'); $('zonaReceita').classList.remove('oculto');
+  });
+
+  // ---------- Chamada ao servidor (Google ou KingHost) ----------
+  function chamarServidor(funcao, payload) {
+    return new Promise(function (ok, falha) {
+      if (NO_GOOGLE) {
+        google.script.run.withSuccessHandler(ok).withFailureHandler(falha)[funcao](payload);
+      } else if (URL_SERVIDOR) {
+        var corpo = Object.assign({}, payload, funcao === 'lerAtestado' ? { acao: 'ler' } : {});
+        fetch(URL_SERVIDOR, {
+          method: 'POST', credentials: 'omit', redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(corpo)
+        }).then(function (r) { return r.json(); })
+          .then(function (j) { if (j && j.ok) ok(j.resultado); else falha(new Error((j && j.erro) || 'Erro no servidor.')); })
+          .catch(falha);
+      } else {
+        falha(new Error('modo de teste'));
+      }
+    });
+  }
+
+  // ---------- Preenchimento automático com os dados do atestado ----------
+  // Preenche só campos vazios. Nome e CPF não são preenchidos (são conferidos com o atestado).
+  var CAMPOS_AUTO = { dataAtestado: 'dataAtestado', dias: 'dias', medico: 'medico', crm: 'crm', local: 'local' };
+  function autoStatus(cls, html) {
+    var a = $('autoStatus'); a.className = 'auto-status ' + cls; a.innerHTML = html;
+  }
+  function preencherDoAtestado(token) {
+    if (MODO_TESTE || !CFG.ocr || !estado.envio) return;
+    var a = estado.analise || {};
+    var payload = (a.tipo === 'pdf' && a.textoLido)
+      ? { textoPdf: String(a.texto).slice(0, 20000) }
+      : { arquivo: estado.envio };
+    autoStatus('', '<span class="giro"></span><span>Lendo os dados do atestado para preencher o formulário…</span>');
+    chamarServidor('lerAtestado', payload).then(function (r) {
+      if (token !== estado.token) return; // arquivo foi trocado
+      var n = 0;
+      Object.keys(CAMPOS_AUTO).forEach(function (k) {
+        var el = $(CAMPOS_AUTO[k]);
+        if (r && r[k] != null && r[k] !== '' && !el.value) { el.value = r[k]; el.classList.add('auto'); el.classList.remove('invalido'); n++; }
+      });
+      if (n) {
+        autoStatus('ok', '<span class="ic">✓</span><span>Preenchemos ' + n + (n === 1 ? ' campo' : ' campos') + ' com os dados do atestado. Confira.</span>');
+        $('avisoAuto').classList.add('on');
+      } else {
+        autoStatus('', '<span class="ic">i</span><span>Não conseguimos ler os dados automaticamente. Preencha abaixo.</span>');
+      }
+    }).catch(function () {
+      if (token !== estado.token) return;
+      autoStatus('', '<span class="ic">i</span><span>Preencha os dados do atestado abaixo.</span>');
+    });
+  }
+
+  // ---------- Etapas ----------
+  function irPara(n) {
+    [1, 2, 3].forEach(function (i) {
+      $('etapa' + i).classList.toggle('oculto', i !== n);
+      $('p' + i).className = 'etapa' + (i === n ? ' ativa' : i < n ? ' feita' : '');
+    });
+    erroGeral('');
+    window.scrollTo(0, 0);
+  }
+  function erroGeral(msg) { var e = $('erroGeral'); e.innerHTML = msg; e.classList.toggle('on', !!msg); if (msg) window.scrollTo(0, 0); }
+
+  function coletar() {
+    return {
+      nome: $('nome').value.replace(/\s+/g, ' ').trim(),
+      cpf: $('cpf').value.replace(/\D/g, ''),
+      matricula: $('matricula').value.trim(),
+      setor: $('setor').value.trim(),
+      email: $('email').value.trim(),
+      dataAtestado: $('dataAtestado').value,
+      dias: $('dias').value,
+      cid: $('cid').value.trim().toUpperCase(),
+      local: $('local').value.trim(),
+      medico: $('medico').value.trim(),
+      crm: $('crm').value.trim(),
+      observacoes: $('observacoes').value.trim(),
+      motivo: $('motivo').value.trim(),
+      medicamento: $('medicamento').value.trim(),
+      inicioSintomas: $('inicioSintomas').value.trim(),
+      declaracao: $('declaracao').checked,
+      website: $('website').value
+    };
+  }
+
+  function validar(d) {
+    var erros = [], primeiro = null;
+    function marcar(id, ruim) {
+      $(id).classList.toggle('invalido', !!ruim);
+      if (ruim) { erros.push(ruim); if (!primeiro) primeiro = $(id); }
+    }
+    if (!estado.arquivo) erros.push('Anexe a foto ou o PDF do atestado.');
+    else if (estado.lendo) erros.push('Aguarde terminar a leitura do atestado.');
+    else if (!estado.envio) erros.push('Não foi possível usar o arquivo anexado. Tente outro.');
+    marcar('nome', d.nome.split(' ').length < 2 && 'Nome completo');
+    marcar('cpf', !cpfValido(d.cpf) && 'CPF');
+    marcar('matricula', !d.matricula && 'Matrícula');
+    marcar('setor', !d.setor && 'Setor');
+    marcar('email', d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email) && 'E-mail');
+    var dataRuim = !d.dataAtestado ? 'Data do atestado' : (diasDesde(d.dataAtestado) < 0 ? 'Data do atestado (não pode ser futura)' : '');
+    marcar('dataAtestado', dataRuim);
+    var dias = parseInt(d.dias, 10);
+    marcar('dias', !(dias >= 1 && dias <= CFG.diasMax) && 'Dias de afastamento');
+    marcar('local', !d.local && 'Local de atendimento');
+    marcar('medico', !d.medico && 'Médico');
+    marcar('motivo', !d.motivo && 'Motivo do atestado');
+    marcar('medicamento', !d.medicamento && 'Medicamento');
+    marcar('inicioSintomas', !d.inicioSintomas && 'Início dos sintomas');
+    marcar('cid', d.cid && !/^[A-Z]\d{2}(\.?\d{1,2})?$/.test(d.cid) && 'CID-10');
+    if (!d.declaracao) { erros.push('Marque a declaração'); $('caixaDeclaracao').classList.add('invalido'); }
+    if (primeiro) setTimeout(function () { primeiro.focus(); }, 50);
+    return erros;
+  }
+
+  function montarChecagens(d) {
+    var a = estado.analise, itens = [];
+    var add = function (st, txt) { itens.push({ st: st, txt: txt }); };
+    var dom = dominioDe(a.qr);
+
+    if (!a.qr) add('al', 'QR code não encontrado. O RH vai conferir o atestado manualmente.');
+    else if (!dom) add('al', 'O QR code não traz um link de validação. O RH vai conferir.');
+    else if (!dominioConfiavel(dom)) add('al', 'O QR code é de uma plataforma ainda não cadastrada (' + dom + '). O RH vai conferir.');
+    else if (qrGenerico(a.qr)) add('ok', 'QR code de validação encontrado (' + nomePlataforma(dom) + '). O RH valida pelo código impresso.');
+    else add('ok', 'QR code de validação encontrado (' + nomePlataforma(dom) + ').');
+
+    if (a.tipo === 'pdf') add(a.assinatura ? 'ok' : 'al', a.assinatura ? 'PDF com assinatura digital.' : 'Não encontramos assinatura digital no PDF.');
+
+    var nomeOk = null, cpfOk = null;
+    if (a.tipo === 'pdf' && a.textoLido) {
+      nomeOk = nomeNoTexto(d.nome, a.texto);
+      cpfOk = a.texto.replace(/\D/g, '').indexOf(d.cpf) !== -1;
+      add(nomeOk ? 'ok' : 'al', nomeOk ? 'Seu nome aparece no atestado.' : 'O nome digitado não aparece no atestado. Confira se está igual ao documento.');
+      if (cpfOk) add('ok', 'Seu CPF aparece no atestado.');
+      if (!cpfOk) cpfOk = null; // muitos atestados não trazem CPF
+    } else if (CFG.ocr) {
+      add('na', 'Nome, dias e médico serão conferidos com o atestado após o envio.');
+    }
+
+    var dd = diasDesde(d.dataAtestado);
+    if (dd > CFG.prazoAlertaDias) add('al', 'Atestado de ' + dd + ' dias atrás. Lembre-se de enviar o quanto antes nas próximas vezes.');
+
+    estado.validacao = {
+      qrConteudo: a.qr || '',
+      textoLido: a.tipo === 'pdf' ? !!a.textoLido : null,
+      nomeNoDocumento: nomeOk,
+      cpfNoDocumento: cpfOk,
+      assinaturaDetectada: !!a.assinatura,
+      textoPdf: a.tipo === 'pdf' && a.textoLido ? String(a.texto).slice(0, 20000) : ''
+    };
+    return itens;
+  }
+
+  $('btnContinuar').addEventListener('click', function () {
+    var d = coletar(), e = validar(d);
+    if (e.length) { erroGeral('<b>Falta corrigir:</b> ' + e.map(esc).join(', ') + '.'); return; }
+    estado.dados = d;
+    var itens = montarChecagens(d);
+    var pend = itens.filter(function (i) { return i.st === 'al'; }).length;
+
+    $('faixaStatus').className = 'faixa ' + (pend ? 'al' : 'ok');
+    $('faixaStatus').innerHTML = pend
+      ? '<div class="ic-faixa">!</div><div><b>Pronto para enviar</b><span>' + pend + (pend === 1 ? ' ponto será conferido' : ' pontos serão conferidos') +
+        ' pelo RH. Isso não impede o envio.</span></div>'
+      : '<div class="ic-faixa">✓</div><div><b>Tudo certo para enviar</b><span>O documento passou nas conferências automáticas.</span></div>';
+
+    $('previaRev').innerHTML = $('previa').innerHTML;
+    var cvOrig = $('previa').querySelector('canvas'), cvRev = $('previaRev').querySelector('canvas');
+    if (cvOrig && cvRev) { cvRev.width = cvOrig.width; cvRev.height = cvOrig.height; cvRev.getContext('2d').drawImage(cvOrig, 0, 0); }
+    $('nomeRev').textContent = estado.arquivo.name || 'Foto do atestado';
+    $('tamRev').textContent = $('tamArq').textContent;
+    $('listaChecagens').innerHTML = itens.map(function (i) {
+      return '<li><span class="bolha ' + i.st + '">' + (i.st === 'ok' ? '✓' : i.st === 'al' ? '!' : 'i') + '</span><span>' + esc(i.txt) + '</span></li>';
+    }).join('');
+
+    var dl = function (linhas) { return linhas.map(function (l) { return '<dt>' + esc(l[0]) + '</dt><dd>' + esc(l[1]) + '</dd>'; }).join(''); };
+    var colab = [['Nome', d.nome], ['CPF', $('cpf').value], ['Matrícula / FM', d.matricula], ['Setor', d.setor]];
+    if (d.email) colab.push(['E-mail', d.email]);
+    var atest = [['Data', dataBr(d.dataAtestado)], ['Afastamento', d.dias + (Number(d.dias) === 1 ? ' dia' : ' dias')],
+      ['Local', d.local], ['Médico', d.medico + (d.crm ? ' · CRM ' + d.crm : '')]];
+    if (d.cid) atest.push(['CID-10', d.cid]);
+    if (d.observacoes) atest.push(['Observações', d.observacoes]);
+    if (d.motivo) atest.push(['Motivo', d.motivo]);
+    if (d.medicamento) atest.push(['Medicamento', d.medicamento]);
+    if (d.inicioSintomas) atest.push(['Início dos sintomas', d.inicioSintomas]);
+    if (estado.receita) atest.push(['Receita médica', estado.receita.nome]);
+    $('resumoColab').innerHTML = dl(colab);
+    $('resumoAtestado').innerHTML = dl(atest);
+    irPara(2);
+  });
+
+  // "Editar"/"Trocar": volta para a etapa 1 já no bloco certo
+  document.querySelectorAll('.editar').forEach(function (b) {
+    b.addEventListener('click', function () {
+      irPara(1);
+      var alvo = $(b.getAttribute('data-ir'));
+      setTimeout(function () { alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+    });
+  });
+
+  $('btnVoltar').addEventListener('click', function () { irPara(1); });
+
+  $('btnEnviar').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; $('carregando').classList.add('on');
+    var fases = ['Enviando o atestado…', 'Lendo o documento…', 'Conferindo a validação…', 'Registrando o protocolo…'], fase = 0;
+    $('msgCarregando').textContent = fases[0];
+    var relogio = setInterval(function () { if (fase < fases.length - 1) $('msgCarregando').textContent = fases[++fase]; }, 4000);
+    var payload = Object.assign({}, estado.dados, { arquivo: estado.envio, validacao: estado.validacao, receita: estado.receita || null });
+
+    function fim() { clearInterval(relogio); btn.disabled = false; $('carregando').classList.remove('on'); }
+    function concluir(r) {
+      fim();
+      $('protocolo').textContent = r.protocolo;
+      var msg = 'Recebemos o seu atestado. O RH/SESMT vai conferir e entra em contato se precisar de algo.';
+      if (estado.dados.email && !MODO_TESTE) msg += ' Enviamos o comprovante para ' + estado.dados.email + '.';
+      if (MODO_TESTE) msg = 'Modo de teste: nada foi enviado.';
+      $('msgFinal').textContent = msg;
+      irPara(3);
+    }
+    function falhar(err) {
+      fim();
+      var m = err && err.message ? err.message : String(err || '');
+      if (/Failed to fetch|NetworkError|Load failed/i.test(m)) m = 'Sem conexão com o servidor. Verifique a internet e tente de novo.';
+      erroGeral('<b>Não foi possível enviar.</b> ' + esc(m));
+    }
+
+    if (MODO_TESTE) { setTimeout(function () { concluir({ protocolo: 'TESTE-LOCAL' }); }, 700); return; }
+    chamarServidor('enviarAtestado', payload).then(concluir, falhar);
+  });
+
+  $('btnCopiar').addEventListener('click', function () {
+    var t = $('protocolo').textContent, b = this;
+    var feito = function () { b.textContent = 'Copiado'; setTimeout(function () { b.textContent = 'Copiar'; }, 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(feito, function () {});
+  });
+  $('btnNovo').addEventListener('click', function () { window.location.reload(); });
+})();
+</script>
+</body>
+</html>
