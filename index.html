@@ -24,6 +24,10 @@
      ===================================================================== */
   var URL_SERVIDOR = 'https://script.google.com/macros/s/AKfycbzXMNKbdhhWsWeC6u1ik-DboXKHm1bHkbnglG7KuRYsAMCxrAoTOVr-3QgtFBmNWyL-Yg/exec';
   var LOGO_URL = '';
+  // PEDIR_EMAIL: mostra o campo de e-mail para o colaborador receber comprovante.
+  // Desativado a pedido do RH (04/11/2026). Para reativar: true aqui e
+  // ENVIAR_COMPROVANTE_COLABORADOR: true no CONFIG do Code.gs.
+  var PEDIR_EMAIL = false;
   /*CONFIG_SERVIDOR*/
 </script>
 <style>
@@ -334,7 +338,7 @@
         <div class="c3"><label class="rot" for="cpf">CPF</label><input id="cpf" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" autocomplete="off"><div class="msg-campo">CPF inválido.</div></div>
         <div class="c3"><label class="rot" for="matricula">Matrícula / FM</label><input id="matricula" inputmode="numeric"><div class="msg-campo">Informe a matrícula.</div></div>
         <div class="c3"><label class="rot" for="setor">Setor</label><input id="setor"><div class="msg-campo">Informe o setor.</div></div>
-        <div class="c3"><label class="rot" for="email">E-mail <small>(opcional, para receber o comprovante)</small></label><input id="email" type="email" autocomplete="email" inputmode="email"><div class="msg-campo">E-mail inválido.</div></div>
+        <div class="c3" id="campoEmail"><label class="rot" for="email">E-mail <small>(opcional, para receber o comprovante)</small></label><input id="email" type="email" autocomplete="email" inputmode="email"><div class="msg-campo">E-mail inválido.</div></div>
       </div>
     </div>
 
@@ -457,6 +461,12 @@
   var MODO_TESTE = !NO_GOOGLE && !URL_SERVIDOR;
 
   if (MODO_TESTE) document.getElementById('avisoTeste').classList.remove('oculto');
+  if (!PEDIR_EMAIL) {
+    var ce = document.getElementById('campoEmail');
+    if (ce) { ce.classList.add('oculto'); ce.querySelector('input').value = ''; }
+    // Setor ocupa a linha inteira quando o e-mail não é pedido
+    var cs = document.getElementById('setor'); if (cs) cs.parentNode.className = 'c6';
+  }
   if (LOGO_URL) document.getElementById('marca').innerHTML = '<img src="' + LOGO_URL + '" alt="Credeal">';
   // Página fora do Google: busca a configuração no servidor (lista de plataformas confiáveis etc.)
   if (!NO_GOOGLE && URL_SERVIDOR && !window.CONFIG_SERVIDOR) {
