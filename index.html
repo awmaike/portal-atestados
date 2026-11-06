@@ -671,7 +671,11 @@
     (ehPdf ? analisarPdf(arq) : analisarImagem(arq)).then(function (r) {
       estado.analise = r; estado.lendo = false;
       preencherDoAtestado(meuToken);
-      if (r.qr) {
+      if (r.qr && r.tipo !== 'pdf' && pedePdf(dominioDe(r.qr))) {
+        // Plataformas que não permitem consulta automática (ex.: Memed / Clicou Consulta): com o PDF a validação é automática
+        status('alerta', '!', 'Este atestado é da ' + esc(nomePlataforma(dominioDe(r.qr))) + '. Para ele ser validado na hora, envie o <b>PDF</b> em vez da foto: ' +
+          (/^https:\/\//i.test(r.qr) ? '<a href="' + esc(r.qr).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">abra o atestado</a>' : 'abra o link do QR code') + ', toque em <b>Baixar receita</b> e depois use <b>Trocar</b> para enviar o PDF baixado.');
+      } else if (r.qr) {
         var d = dominioDe(r.qr);
         if (d && dominioConfiavel(d)) status('ok', '✓', 'QR code de validação encontrado' + ' (' + esc(nomePlataforma(d)) + ').');
         else status('ok', '✓', 'QR code encontrado.');
@@ -862,6 +866,9 @@
     return erros;
   }
 
+  // Plataformas cujo link não permite buscar o documento automaticamente: pedir o PDF ao colaborador
+  function pedePdf(dom) { return !!dom && /(^|\.)memed\.com\.br$/.test(dom); }
+
   function montarChecagens(d) {
     var a = estado.analise, itens = [];
     var add = function (st, txt) { itens.push({ st: st, txt: txt }); };
@@ -874,6 +881,7 @@
     else add('ok', 'QR code de validação encontrado (' + nomePlataforma(dom) + ').');
 
     if (a.tipo === 'pdf') add(a.assinatura ? 'ok' : 'al', a.assinatura ? 'PDF com assinatura digital.' : 'Não encontramos assinatura digital no PDF.');
+    if (a.tipo !== 'pdf' && a.qr && pedePdf(dom)) add('al', 'Atestado da ' + nomePlataforma(dom) + ' enviado como foto: com o PDF a validação seria automática. Se puder, volte e envie o PDF (Baixar receita no link do atestado).');
 
     var nomeOk = null, cpfOk = null;
     if (a.tipo === 'pdf' && a.textoLido) {
