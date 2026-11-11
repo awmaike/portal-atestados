@@ -502,6 +502,9 @@
     if (!n || !t) return false;
     if (t.indexOf(n) !== -1) return true;
     var ignorar = { DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1 };
+    // Mesmo nome escrito junto ou separado ("Santa Cruz" x "Santacruz") ou com/sem "de", "da"...
+    var junto = function (x) { return x.split(' ').filter(function (p) { return !ignorar[p]; }).join(''); };
+    if (junto(n).length >= 8 && junto(t).indexOf(junto(n)) !== -1) return true;
     var partes = n.split(' ').filter(function (p) { return p.length > 1 && !ignorar[p]; });
     var palavras = ' ' + t + ' ';
     return partes.length >= 2 && partes.every(function (p) { return palavras.indexOf(' ' + p + ' ') !== -1; });
