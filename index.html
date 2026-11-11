@@ -501,13 +501,56 @@
     var n = normalizar(nome), t = normalizar(texto);
     if (!n || !t) return false;
     if (t.indexOf(n) !== -1) return true;
-    var ignorar = { DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1 };
-    // Mesmo nome escrito junto ou separado ("Santa Cruz" x "Santacruz") ou com/sem "de", "da"...
-    var junto = function (x) { return x.split(' ').filter(function (p) { return !ignorar[p]; }).join(''); };
-    if (junto(n).length >= 8 && junto(t).indexOf(junto(n)) !== -1) return true;
-    var partes = n.split(' ').filter(function (p) { return p.length > 1 && !ignorar[p]; });
-    var palavras = ' ' + t + ' ';
-    return partes.length >= 2 && partes.every(function (p) { return palavras.indexOf(' ' + p + ' ') !== -1; });
+    // Vale para qualquer nome: ignora acentos, maiúsculas, "de/da/dos", espaços (Santa Cruz x Santacruz),
+    // grafias parecidas (Luiz/Luis, Thiago/Tiago, Sousa/Souza), 1 letra trocada e nomes do meio que faltem.
+    var ignorar = { DE: 1, DA: 1, DO: 1, DOS: 1, DAS: 1, E: 1, DI: 1, DU: 1, DEL: 1 };
+    var limpar = function (x) { return x.split(' ').filter(function (p) { return p && !ignorar[p]; }); };
+    var partes = limpar(n), palavras = limpar(t);
+    if (!partes.length || !palavras.length) return false;
+    var juntoN = partes.join(''), juntoT = palavras.join('');
+    if (juntoN.length >= 8 && juntoT.indexOf(juntoN) !== -1) return true;
+    if (partes.length < 2) return false;
+    var som = function (p) {
+      return p.replace(/TH/g, 'T').replace(/PH/g, 'F').replace(/Y/g, 'I').replace(/W/g, 'V').replace(/Z/g, 'S')
+        .replace(/K/g, 'C').replace(/QU/g, 'C').replace(/H/g, '').replace(/(.)\1+/g, '$1');
+    };
+    var distancia = function (a, b, max) {
+      if (Math.abs(a.length - b.length) > max) return max + 1;
+      var ant = [], i, j;
+      for (j = 0; j <= b.length; j++) ant[j] = j;
+      for (i = 1; i <= a.length; i++) {
+        var atual = [i], menor = i;
+        for (j = 1; j <= b.length; j++) {
+          atual[j] = Math.min(ant[j] + 1, atual[j - 1] + 1, ant[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+          if (atual[j] < menor) menor = atual[j];
+        }
+        if (menor > max) return max + 1;
+        ant = atual;
+      }
+      return ant[b.length];
+    };
+    // Palavras do documento, sozinhas e de duas em duas (cobre nome junto no documento e separado no digitado)
+    var candidatos = palavras.slice();
+    for (var k = 0; k + 1 < palavras.length; k++) candidatos.push(palavras[k] + palavras[k + 1]);
+    var sons = candidatos.map(som);
+    // Posições (no documento) onde a parte do nome aparece
+    var onde = function (p) {
+      var pos = [];
+      if (!p || p.length < 2) return pos;
+      var sp = som(p), tol = p.length >= 9 ? 2 : p.length >= 5 ? 1 : 0;
+      for (var i = 0; i < candidatos.length; i++) {
+        if (candidatos[i] === p || sons[i] === sp || (tol && distancia(sp, sons[i], tol) <= tol))
+          pos.push(i < palavras.length ? i : i - palavras.length);
+      }
+      return pos;
+    };
+    var ult = partes.length - 1;
+    var ini = onde(partes[0]), fim = onde(partes[ult]);
+    if (ult > 1) { ini = ini.concat(onde(partes[0] + partes[1])); fim = fim.concat(onde(partes[ult - 1] + partes[ult])); }
+    // Primeiro e último nome bastam, desde que perto um do outro (nomes do meio podem faltar ou vir abreviados)
+    var janela = partes.length + 4;
+    return ini.some(function (a) { return fim.some(function (b) { return b > a && b - a <= janela; }); });
+
   }
   function dominioDe(url) { var m = String(url || '').match(/^https?:\/\/([^\/?#:]+)/i); return m ? m[1].toLowerCase() : ''; }
   function dominioConfiavel(d) {
